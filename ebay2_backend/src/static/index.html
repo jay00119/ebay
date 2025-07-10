@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay爆款分析器</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+            background-color: #f7fafc;
+        }
+        .upload-area.dragover {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        .product-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border: 1px solid #e2e8f0;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .similar-group {
+            border-left: 4px solid #4299e1;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        }
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .tab-button {
+            padding: 12px 24px;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .tab-button.active {
+            color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .tab-content {
+            padding-top: 20px;
+        }
+        .tab-content.hidden {
+            display: none;
+        }
+        .calculator-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .group-item {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+            padding: 12px;
+        }
+        .group-item::before {
+            content: \'\';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            pointer-events: none;
+        }
+        .group-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.25);
+        }
+        .group-item.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .group-item.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+        }
+        .group-item-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            color: white;
+        }
+        .group-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 8px;
+        }
+        .group-item-title {
+            font-size: 16px;
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            line-height: 1.2;
+        }
+        .group-item-subtitle {
+            font-size: 11px;
+            opacity: 0.9;
+            line-height: 1.2;
+            font-weight: 400;
+        }
+        .group-item-button {
+            background: rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            cursor: pointer;
+            align-self: flex-end;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .group-item-button:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: scale(1.05);
+        }
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 24px;
+            text-align: center;
+        }
+        .stat-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        /* 隐藏数字输入框的上下按钮 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .product-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .ungrouped-product-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        @media (max-width: 1200px) {
+            .ungrouped-product-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 900px) {
+            .ungrouped-product-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 600px) {
+            .ungrouped-product-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .product-item {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-start;
+            padding: 16px;
+        }
+        .ungrouped-product-item {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+        .product-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .ungrouped-product-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .product-image {
+            width: 144px;
+            height: 144px;
+            object-fit: cover;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+        .ungrouped-product-image {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
+        .product-info {
+            flex: 1;
+        }
+        .product-title {
+            color: #3b82f6;
+            font-weight: 500;
+            margin-bottom: 12px;
+            text-decoration: none;
+            display: block;
+            line-height: 1.4;
+        }
+        .product-title:hover {
+            color: #1d4ed8;
+        }
+        .product-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 24px;
+            font-size: 0.875rem;
+        }
+        .ungrouped-product-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.875rem;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .detail-label {
+            color: #6b7280;
+        }
+        .detail-value {
+            font-weight: 500;
+        }
+        .price-value {
+            color: #059669;
+        }
+        .volume-value {
+            color: #dc2626;
+        }
+        .clickable-item-id {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background: rgba(147, 51, 234, 0.1);
+        }
+        
+        .clickable-item-id:hover {
+            background: rgba(147, 51, 234, 0.2);
+            transform: scale(1.02);
+        }
+        
+        .clickable-item-id:active {
+            transform: scale(0.98);
+        }
+
+        .compact-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 12px;
+            height: 32px;
+        }
+        
+        .compact-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .mini-input {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 11px;
+            height: 28px;
+            text-align: center;
+        }
+        
+        .compact-shipping-option {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 32px;
+        }
+        
+        .compact-shipping-option.selected {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .compact-shipping-option input[type="radio"] {
+            margin-right: 6px;
+            width: 12px;
+            height: 12px;
+        }
+        
+        .compact-calculate-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 36px;
+        }
+        
+        .compact-calculate-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-1px);
+        }
+        
+        .compact-result-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .compact-result-item span:first-child {
+            margin-bottom: 2px;
+        }
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            background: white;
+            color: #374151;
+            margin-bottom: 16px;
+        }
+        .calculator-input::placeholder {
+            color: #9ca3af;
+        }
+        .calculator-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: white;
+        }
+        .dimension-input {
+            width: 60px;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+            color: #374151;
+            text-align: center;
+            margin-right: 8px;
+        }
+        .shipping-option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .shipping-option:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .shipping-option.selected {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+        .shipping-option input[type="radio"] {
+            margin-right: 8px;
+        }
+        .calculate-btn {
+            width: 100%;
+            padding: 12px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .copy-group-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+        .copy-group-btn:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        .calculate-btn:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+        .result-item:last-child {
+            border-bottom: none;
+        }
+        .copy-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 20px;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        .copy-btn:hover {
+            background: #2563eb;
+        }
+    </style>
+    <script>
+        // Main Tab handling
+        function switchMainTab(tabId) {
+            document.querySelectorAll(".tab-button").forEach(button => {
+                button.classList.remove("active");
+            });
+            document.querySelectorAll(".tab-content").forEach(content => {
+                content.classList.add("hidden");
+            });
+
+            document.getElementById(tabId).classList.add("active");
+            document.getElementById(`content${tabId.slice(-1)}`).classList.remove("hidden");
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-center items-center py-6">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-3xl font-bold text-gray-900">eBay爆款分析器</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button id="tab1" class="tab-button active" onclick="switchMainTab('tab1')">开发中</button>
+            <button id="tab2" class="tab-button" onclick="switchMainTab('tab2')">eBay爆款分析器</button>
+        </div>
+
+        <!-- Tab Content 1: Under Development -->
+        <div id="content1" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-tools text-6xl text-gray-400 mb-4"></i>
+                <p class="text-xl text-gray-600">此功能正在开发中，敬请期待！</p>
+            </div>
+        </div>
+
+        <!-- Tab Content 2: Existing eBay Analyzer -->
+        <div id="content2" class="tab-content hidden">
+            <!-- Upload Section -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-upload text-yellow-600 mr-2"></i>
+                    上传文件
+                </h2>
+                <div id="uploadArea" class="upload-area rounded-lg p-12 text-center cursor-pointer">
+                    <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                    <p class="text-lg text-gray-600 mb-2">拖拽CSV文件到此处，或点击选择文件</p>
+                    <p class="text-sm text-gray-500">支持多个文件同时上传</p>
+                    <input type="file" id="fileInput" multiple accept=".csv" class="hidden">
+                </div>
+                
+                <!-- Selected Files -->
+                <div id="selectedFiles" class="mt-4 hidden">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">已选择的文件:</h3>
+                    <div id="fileList" class="space-y-2"></div>
+                </div>
+                
+                <!-- Upload Button -->
+                <div class="mt-6">
+                    <button id="uploadBtn" class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center" disabled>
+                        <i class="fas fa-play mr-2"></i>
+                        开始分析
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="loading" class="hidden bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-spinner loading text-4xl text-blue-600 mb-4"></i>
+                <p class="text-lg text-gray-600">正在分析数据和图片相似度...</p>
+                <p class="text-sm text-gray-500 mt-2">这可能需要几分钟时间</p>
+            </div>
+
+            <!-- Results -->
+            <div id="results" class="hidden">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card">
+                        <div class="stat-icon text-blue-600">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="stat-number text-gray-900" id="totalProducts">50</div>
+                        <div class="stat-label">总商品数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon text-green-600">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
+                        <div class="stat-number text-gray-900" id="similarGroups">2</div>
+                        <div class="stat-label">相似组数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon text-yellow-600">
+                            <i class="fas fa-euro-sign"></i>
+                        </div>
+                        <div class="stat-number text-gray-900" id="totalSales">€4676.00</div>
+                        <div class="stat-label">总销售额</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon text-purple-600">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="stat-number text-gray-900" id="totalVolume">126</div>
+                        <div class="stat-label">总销量</div>
+                    </div>
+                </div>
+
+                <!-- Main Content Area -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Left Column: Product Groups -->
+                    <div class="lg:col-span-1">
+                        <!-- Product Groups List -->
+                        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                            <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-list text-blue-600 mr-2"></i>
+                                商品组列表
+                            </h2>
+                            <div id="groupsSummary" class="text-sm text-gray-600 mb-4">
+                                共发现 <span id="groupsCount">2</span> 个相似商品组
+                            </div>
+                            <div id="groupsList" class="grid grid-cols-3 gap-3">
+                                <div class="group-item rounded-lg p-3">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <div class="font-medium text-gray-900">组 1</div>
+                                            <div class="text-sm text-gray-600">2 个商品</div>
+                                        </div>
+                                        <button class="copy-group-btn" onclick="copyGroupItemIds(1)">
+                                            <i class="fas fa-copy mr-1"></i>一键复制
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="group-item rounded-lg p-3">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <div class="font-medium text-gray-900">组 2</div>
+                                            <div class="text-sm text-gray-600">2 个商品</div>
+                                        </div>
+                                        <button class="copy-group-btn" onclick="copyGroupItemIds(2)">
+                                            <i class="fas fa-copy mr-1"></i>一键复制
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Product Details -->
+                    <div class="lg:col-span-2">
+                        <!-- German Profit Calculator -->
+                        <div class="calculator-section rounded-lg shadow-sm p-4 text-white mb-4">
+                            <h2 class="text-lg font-semibold mb-3 flex items-center">
+                                <i class="fas fa-calculator mr-2"></i>
+                                德国利润计算器
+                            </h2>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Left Half: Input Fields -->
+                                <div class="space-y-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1">不含税价 (€)</label>
+                                            <input type="number" id="priceInput" class="compact-input" placeholder="0.00" step="0.01">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1">实际重量 (kg)</label>
+                                            <input type="number" id="weightInput" class="compact-input" placeholder="0.00" step="0.01">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1">采购成本 (¥)</label>
+                                            <input type="number" id="costInput" class="compact-input" placeholder="0.00" step="0.01">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium mb-1">尺寸 (cm)</label>
+                                            <div class="grid grid-cols-3 gap-1">
+                                                <input type="number" id="lengthInput" class="mini-input" placeholder="1" value="1" step="0.1">
+                                                <input type="number" id="widthInput" class="mini-input" placeholder="1" value="1" step="0.1">
+                                                <input type="number" id="heightInput" class="mini-input" placeholder="1" value="1" step="0.1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Half: Shipping Options and Calculate Button -->
+                                <div class="space-y-2">
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1">物流渠道</label>
+                                        <div class="grid grid-cols-2 gap-1">
+                                            <div class="compact-shipping-option selected" onclick="selectShipping('economy')">
+                                                <input type="radio" name="shipping" value="economy" checked>
+                                                <span class="text-xs">经济物流</span>
+                                            </div>
+                                            <div class="compact-shipping-option" onclick="selectShipping('standard')">
+                                                <input type="radio" name="shipping" value="standard">
+                                                <span class="text-xs">标准物流</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <button id="calculateBtn" class="compact-calculate-btn w-full">
+                                            <i class="fas fa-calculator mr-1"></i>
+                                            计算利润
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="profitResult" class="hidden mt-3 p-3 bg-white bg-opacity-20 rounded-lg">
+                                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                                    <div class="compact-result-item">
+                                        <span class="text-xs opacity-80">含税价</span>
+                                        <span id="taxIncludedPrice" class="font-medium">€0.00</span>
+                                    </div>
+                                    <div class="compact-result-item">
+                                        <span class="text-xs opacity-80">计费重量</span>
+                                        <span id="chargeableWeight" class="font-medium">0.00 kg</span>
+                                    </div>
+                                    <div class="compact-result-item">
+                                        <span class="text-xs opacity-80">物流费</span>
+                                        <span id="shippingCost" class="font-medium">¥0.00</span>
+                                    </div>
+                                    <div class="compact-result-item">
+                                        <span class="text-xs opacity-80">利润</span>
+                                        <span id="profitAmount" class="font-medium text-green-300">¥0.00</span>
+                                    </div>
+                                    <div class="compact-result-item">
+                                        <span class="text-xs opacity-80">利润率</span>
+                                        <span id="profitMargin" class="font-medium text-green-300">0.00%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="bg-white rounded-lg shadow-sm mb-6">
+                            <div class="flex border-b">
+                                <button id="similarTab" class="tab-active px-6 py-3 font-medium rounded-tl-lg transition-colors flex items-center">
+                                    相似商品分组 <span id="similarCount" class="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">2</span>
+                                </button>
+                                <button id="ungroupedTab" class="tab-inactive px-6 py-3 font-medium transition-colors flex items-center">
+                                    未分组商品 <span id="ungroupedCount" class="ml-2 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">46</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Similar Products Tab Content -->
+                            <div id="similarContent" class="p-6">
+                                <div id="similarGroupsDetail">
+                                    <!-- Group 1 -->
+                                    <div id="group-1" class="similar-group rounded-lg p-6 mb-6">
+                                        <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                                            组 1 - 2 个相似商品
+                                        </h3>
+                                        <p class="text-sm text-gray-600 mb-4">这些商品被识别为相似商品，请根据图片、价格等因素人工判断选品。</p>
+                                        <div class="product-grid">
+                                            <div class="product-item">
+                                                <img src="https://i.ebayimg.com/images/g/mE8AAOSwr-xjBXck/s-l1200.jpg" alt="Anlasser Reparatursatz" class="product-image">
+                                                <div class="product-info">
+                                                    <a href="#" class="product-title">Anlasser Reparatursatz für 16 Zahn Ritzel Briggs & Stratton 497606 696541 NEU !!</a>
+                                                    <div class="product-details">
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">税前价:</span>
+                                                            <span class="detail-value price-value">€15.66</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">销量:</span>
+                                                            <span class="detail-value">0</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">总额:</span>
+                                                            <span class="detail-value price-value">€100.00</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">最近售出:</span>
+                                                            <span class="detail-value volume-value">6</span>
+                                                        </div>
+                                                        <div class="detail-item" style="grid-column: 1 / -1;">
+                                                            <span class="detail-label">Item ID:</span>
+                                                            <span class="detail-value text-purple-600">282639537944</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="product-item">
+                                                <img src="https://i.ebayimg.com/images/g/KMMAAOSwOZBlex63/s-l1200.jpg" alt="Anlasser Reparatursatz" class="product-image">
+                                                <div class="product-info">
+                                                    <a href="#" class="product-title">Anlasser Reparatursatz für 16 Zahn Ritzel Briggs & Stratton 497606 696541</a>
+                                                    <div class="product-details">
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">税前价:</span>
+                                                            <span class="detail-value price-value">€15.88</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">销量:</span>
+                                                            <span class="detail-value">0</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">总额:</span>
+                                                            <span class="detail-value price-value">€100.00</span>
+                                                        </div>
+                                                        <div class="detail-item">
+                                                            <span class="detail-label">最近售出:</span>
+                                                            <span class="detail-value volume-value">3</span>
+                                                        </div>
+                                                        <div class="detail-item" style="grid-column: 1 / -1;">
+                                                            <span class="detail-label">Item ID:</span>
+                                                            <span class="detail-value text-purple-600">335699560402</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Ungrouped Products Tab Content -->
+                            <div id="ungroupedContent" class="p-6 hidden">
+                                <div id="ungroupedProductsList" class="product-grid">
+                                    <!-- Sample ungrouped products will be populated here -->
+                                </div>
+                                <div class="text-center mt-8">
+                                    <button class="copy-btn">
+                                        <i class="fas fa-copy mr-2"></i>
+                                        一键复制所有未分组商品 Item ID
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        let analysisResults = null;
+        let currentTab = 'similar';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+        const fileList = document.getElementById('fileList');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+
+        // Tab elements
+        const similarTab = document.getElementById('similarTab');
+        const ungroupedTab = document.getElementById('ungroupedTab');
+        const similarContent = document.getElementById('similarContent');
+        const ungroupedContent = document.getElementById('ungroupedContent');
+
+        // Calculator elements
+        const calculateBtn = document.getElementById('calculateBtn');
+        const profitResult = document.getElementById('profitResult');
+
+        // File upload handling
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+        uploadBtn.addEventListener('click', uploadFiles);
+
+        // Tab handling (inner tabs)
+        similarTab.addEventListener('click', () => switchTab('similar'));
+        ungroupedTab.addEventListener('click', () => switchTab('ungrouped'));
+
+        // Calculator handling
+        calculateBtn.addEventListener('click', calculateProfit);
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(file => file.name.endsWith(".csv"));
+            updateSelectedFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            updateSelectedFiles(files);
+        }
+
+        function updateSelectedFiles(files) {
+            selectedFiles = files;
+            if (files.length > 0) {
+                selectedFilesDiv.classList.remove('hidden');
+                fileList.innerHTML = files.map(file => `
+                    <div class="flex items-center justify-between bg-gray-50 rounded p-3">
+                        <div class="flex items-center">
+                            <i class="fas fa-file-csv text-green-600 mr-2"></i>
+                            <span class="text-sm font-medium">${file.name}</span>
+                        </div>
+                        <span class="text-xs text-gray-500">${(file.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                `).join('');
+                uploadBtn.disabled = false;
+            } else {
+                selectedFilesDiv.classList.add('hidden');
+                uploadBtn.disabled = true;
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            if (tab === 'similar') {
+                similarTab.classList.remove('tab-inactive');
+                similarTab.classList.add('tab-active');
+                ungroupedTab.classList.remove('tab-active');
+                ungroupedTab.classList.add('tab-inactive');
+                similarContent.classList.remove('hidden');
+                ungroupedContent.classList.add('hidden');
+            } else {
+                ungroupedTab.classList.remove('tab-inactive');
+                ungroupedTab.classList.add('tab-active');
+                similarTab.classList.remove('tab-active');
+                similarTab.classList.add('tab-inactive');
+                ungroupedContent.classList.remove('hidden');
+                similarContent.classList.add('hidden');
+            }
+        }
+
+        function selectShipping(type) {
+            document.querySelectorAll('#content2 .shipping-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            document.querySelector(`#content2 input[value="${type}"]`).checked = true;
+        }
+
+        function calculateProfit() {
+            const price = parseFloat(document.getElementById('priceInput').value) || 0;
+            const weight = parseFloat(document.getElementById('weightInput').value) || 0;
+            const cost = parseFloat(document.getElementById('costInput').value) || 0;
+            const length = parseFloat(document.getElementById('lengthInput').value) || 1;
+            const width = parseFloat(document.getElementById('widthInput').value) || 1;
+            const height = parseFloat(document.getElementById('heightInput').value) || 1;
+            const shippingType = document.querySelector('#content2 input[name="shipping"]:checked').value;
+
+            if (price === 0 || weight === 0 || cost === 0) {
+                alert('请填写所有必要字段');
+                return;
+            }
+
+            // 计算逻辑
+            const exchangeRate = 7.8; // EUR to CNY
+            const taxIncludedPrice = price * 1.19; // 德国19%增值税
+            const grossRevenue = taxIncludedPrice * exchangeRate;
+            const netIncome = grossRevenue * 0.85; // 扣除平台费用15%
+            
+            // 物流费计算
+            const volume = length * width * height / 1000; // 立方厘米转升
+            const volumeWeight = volume * 200; // 体积重量
+            const actualWeight = Math.max(weight, volumeWeight);
+            const shippingRate = shippingType === 'economy' ? 45 : 65; // 每公斤费率
+            const shippingCost = actualWeight * shippingRate;
+            
+            const profit = netIncome - cost - shippingCost;
+            const profitMargin = (profit / netIncome * 100).toFixed(2);
+
+            // 更新显示
+            document.getElementById('taxIncludedPrice').textContent = `€${taxIncludedPrice.toFixed(2)}`;
+            document.getElementById('netIncome').textContent = `¥${netIncome.toFixed(2)}`;
+            document.getElementById('shippingCost').textContent = `¥${shippingCost.toFixed(2)}`;
+            document.getElementById('profitAmount').textContent = `¥${profit.toFixed(2)}`;
+            document.getElementById('profitMargin').textContent = `${profitMargin}%`;
+            
+            profitResult.classList.remove('hidden');
+        }
+        async function uploadFiles() {
+            if (selectedFiles.length === 0) return;
+
+            // Show loading
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append("files", file);
+            });
+
+            try {
+                const API_BASE_URL = "https://5000-ic48avy6kw0br1hpa09fb-d0bf6488.manusvm.computer";
+                const response = await fetch(`${API_BASE_URL}/api/csv/upload`, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                analysisResults = await response.json();
+                console.log("Analysis Results:", analysisResults);
+
+                // Update summary stats
+                document.getElementById("totalProducts").textContent = analysisResults.total_products;
+                document.getElementById("similarGroups").textContent = analysisResults.similarity_analysis.groups_found;
+                
+                // Calculate total sales and volume from analysisResults.products
+                let totalSales = 0;
+                let totalVolume = 0;
+                analysisResults.products.forEach(product => {
+                    totalSales += product.total_sales;
+                    totalVolume += product.volume_numeric;
+                });
+                document.getElementById("totalSales").textContent = `€${totalSales.toFixed(2)}`;
+                document.getElementById("totalVolume").textContent = totalVolume;
+
+                // Populate similar groups and ungrouped products
+                populateSimilarGroups(analysisResults.similar_groups);
+                populateUngroupedProducts(analysisResults.products);
+
+                loading.classList.add('hidden');
+                results.classList.remove('hidden');
+                results.classList.add('fade-in');
+
+            } catch (error) {
+                console.error("Error uploading files:", error);
+                alert("文件上传或分析失败: " + error.message);
+                loading.classList.add('hidden');
+            }
+        }
+
+        function populateSimilarGroups(similarGroups) {
+            const groupsListContainer = document.getElementById("groupsList");
+            groupsListContainer.innerHTML = ""; // Clear existing groups
+            const similarGroupsDetailContainer = document.getElementById("similarGroupsDetail");
+            similarGroupsDetailContainer.innerHTML = ""; // Clear existing detailed groups
+
+            let groupCount = 0;
+            let firstGroupId = null;
+            
+            // Convert similarGroups object to array and sort by group size (number of products)
+            const sortedGroups = Object.entries(similarGroups).sort((a, b) => {
+                return b[1].length - a[1].length; // Sort by group size descending
+            });
+            
+            for (const [groupId, currentGroup] of sortedGroups) { // Renamed 'group' to 'currentGroup'
+                groupCount++;
+                if (firstGroupId === null) firstGroupId = groupId;
+                
+                // Sort products by sales volume (high to low)
+                const sortedGroup = [...currentGroup].sort((a, b) => {
+                    const volumeA = parseInt(a.product.volume_numeric) || 0;
+                    const volumeB = parseInt(b.product.volume_numeric) || 0;
+                    return volumeB - volumeA;
+                });
+                
+                const groupItem = document.createElement("div");
+                groupItem.className = "group-item";
+                groupItem.id = `group-item-${groupId}`;
+                groupItem.innerHTML = `
+                    <div class="group-item-content">
+                        <div class="group-item-info">
+                            <div class="group-item-title">组 ${groupCount}</div>
+                            <div class="group-item-subtitle">${currentGroup.length}个商品</div>
+                        </div>
+                        <button class="group-item-button" onclick="copyGroupItemIds(${groupId}); event.stopPropagation();">
+                            复制
+                        </button>
+                    </div>
+                `;
+                
+                // Add click handler for group selection
+                groupItem.addEventListener('click', () => selectGroup(groupId));
+                groupsListContainer.appendChild(groupItem);
+
+                const detailedGroup = document.createElement("div");
+                detailedGroup.id = `group-detail-${groupId}`;
+                detailedGroup.className = "similar-group rounded-lg p-6 mb-6";
+                detailedGroup.style.display = 'none'; // Initially hide all groups
+                detailedGroup.innerHTML = `
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        组 ${groupCount} - ${currentGroup.length} 个相似商品 <span class="text-sm text-gray-600">(按销量排序)</span>
+                    </h3>
+                    <p class="text-sm text-gray-600 mb-4">这些商品被识别为相似商品，请根据图片、价格等因素人工判断选品。</p>
+                    <div class="product-grid">
+                        ${sortedGroup.map((item, index) => `
+                            <div class="product-item">
+                                <div class="relative">
+                                    <img src="${item.product.image_url}" alt="${item.product.title}" class="product-image" onerror="this.style.display='none'">
+                                    <div class="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                                        #${index + 1}
+                                    </div>
+                                </div>
+                                <div class="product-info">
+                                    <a href="${item.product.product_url}" target="_blank" class="product-title">${item.product.title}</a>
+                                    <div class="product-details">
+                                        <div class="detail-item">
+                                            <span class="detail-label">税前价:</span>
+                                            <span class="detail-value price-value">€${item.product.price_numeric.toFixed(2)}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">销量:</span>
+                                            <span class="detail-value volume-value">${item.product.volume_numeric}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">总额:</span>
+                                            <span class="detail-value price-value">€${item.product.total_sales.toFixed(2)}</span>
+                                        </div>
+                                        <div class="detail-item">
+                                            <span class="detail-label">最近售出:</span>
+                                            <span class="detail-value">${item.product.last_sold_time || 'N/A'}</span>
+                                        </div>
+                                        <div class="detail-item" style="grid-column: 1 / -1;">
+                                            <span class="detail-label">Item ID:</span>
+                                            <span class="detail-value text-purple-600 font-mono clickable-item-id" onclick="copyItemId('${extractItemId(item.product.product_url) || 'N/A'}')" title="点击复制Item ID">${extractItemId(item.product.product_url) || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                similarGroupsDetailContainer.appendChild(detailedGroup);
+                
+                // Store sorted group for copy function
+                similarGroups[groupId] = sortedGroup;
+            }
+            
+            document.getElementById("groupsCount").textContent = groupCount;
+            document.getElementById("similarCount").textContent = groupCount;
+            
+            // Select the first group by default
+            if (firstGroupId !== null) {
+                selectGroup(firstGroupId);
+            }
+        }
+
+        function populateUngroupedProducts(allProducts) {
+            const ungroupedProductsListContainer = document.getElementById("ungroupedProductsList");
+            ungroupedProductsListContainer.innerHTML = ""; // Clear existing products
+
+            const groupedItemIds = new Set();
+            if (analysisResults && analysisResults.similar_groups) {
+                for (const groupId in analysisResults.similar_groups) {
+                    analysisResults.similar_groups[groupId].forEach(item => {
+                        groupedItemIds.add(extractItemId(item.product.product_url));
+                    });
+                }
+            }
+
+            const ungroupedProducts = allProducts.filter(product => !groupedItemIds.has(extractItemId(product.product_url))); // Changed product.product.url to product.product_url
+            
+            // Sort ungrouped products by sales volume (high to low)
+            const sortedUngroupedProducts = ungroupedProducts.sort((a, b) => {
+                const volumeA = parseInt(a.volume_numeric) || 0;
+                const volumeB = parseInt(b.volume_numeric) || 0;
+                return volumeB - volumeA;
+            });
+            
+            document.getElementById("ungroupedCount").textContent = sortedUngroupedProducts.length;
+
+            // Change the container to use grid layout
+            ungroupedProductsListContainer.className = "ungrouped-product-grid";
+            
+            ungroupedProductsListContainer.innerHTML = sortedUngroupedProducts.map((product, index) => `
+                <div class="ungrouped-product-item">
+                    <div class="relative">
+                        <img src="${product.image_url}" alt="${product.title}" class="ungrouped-product-image" onerror="this.style.display='none'">
+                        <div class="absolute top-2 left-2 bg-gray-600 text-white text-xs px-2 py-1 rounded">
+                            #${index + 1}
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <a href="${product.product_url}" target="_blank" class="product-title">${product.title}</a>
+                        <div class="ungrouped-product-details">
+                            <div class="detail-item">
+                                <span class="detail-label">税前价:</span>
+                                <span class="detail-value price-value">€${product.price_numeric.toFixed(2)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">销量:</span>
+                                <span class="detail-value volume-value">${product.volume_numeric}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">总额:</span>
+                                <span class="detail-value price-value">€${product.total_sales.toFixed(2)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">最近售出:</span>
+                                <span class="detail-value">${product.last_sold_time || 'N/A'}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Item ID:</span>
+                                <span class="detail-value text-purple-600 font-mono clickable-item-id" onclick="copyItemId('${extractItemId(product.product_url) || 'N/A'}')" title="点击复制Item ID">${extractItemId(product.product_url) || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 选择并显示特定商品组
+        function selectGroup(groupId) {
+            // Remove active class from all group items
+            document.querySelectorAll('#content2 .group-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Add active class to selected group item
+            const selectedGroupItem = document.getElementById(`group-item-${groupId}`);
+            if (selectedGroupItem) {
+                selectedGroupItem.classList.add('active');
+            }
+            
+            // Hide all group details
+            document.querySelectorAll('#content2 [id^="group-detail-"]').forEach(detail => {
+                detail.style.display = 'none';
+            });
+            
+            // Show selected group detail
+            const selectedGroupDetail = document.getElementById(`group-detail-${groupId}`);
+            if (selectedGroupDetail) {
+                selectedGroupDetail.style.display = 'block';
+            }
+        }
+
+        // 从商品URL中提取Item ID的函数 (改进版，支持多种URL格式)
+        function extractItemId(url) {
+            if (!url) return null;
+            
+            // 匹配多种eBay URL格式中的12位数字Item ID
+            const patterns = [
+                /\/itm\/(\d{12})/,
+                /\/p\/(\d{12})/,
+                /item=(\d{12})/,
+                /\/(\d{12})(?:\/|\?|$)/,
+                /ebay\.com\/.*?(\d{12})/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+            
+            return null;
+        }
+
+        // 复制组内所有商品的Item ID (增强版，适合Excel导入)
+        function copyGroupItemIds(groupId) {
+            const currentGroup = analysisResults.similar_groups[groupId];
+            if (!currentGroup) return;
+            
+            // 提取所有有效的Item ID
+            const itemIds = currentGroup.map(item => extractItemId(item.product.product_url))
+                                 .filter(id => id !== null && id !== 'N/A');
+            
+            if (itemIds.length === 0) {
+                alert('该组没有找到有效的Item ID');
+                return;
+            }
+            
+            // 创建适合Excel的格式：每行一个ID，便于粘贴到Excel列中
+            const itemIdsText = itemIds.join('\n');
+            
+            // 复制到剪贴板
+            navigator.clipboard.writeText(itemIdsText).then(() => {
+                showCopySuccess(groupId, itemIds.length);
+            }).catch(err => {
+                console.error('复制失败，尝试备用方法:', err);
+                // 备用复制方法
+                const textArea = document.createElement('textarea');
+                textArea.value = itemIdsText;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showCopySuccess(groupId, itemIds.length);
+            });
+        }
+
+        // 显示复制成功提示 (简化版，只显示按钮反馈)
+        function showCopySuccess(groupNumber, count) {
+            const button = document.querySelector(`#content2 button[onclick="copyGroupItemIds(${groupNumber}); event.stopPropagation();"]`);
+            if (!button) return;
+            
+            const originalText = button.innerHTML;
+            
+            button.innerHTML = `<i class="fas fa-check mr-1"></i>已复制 ${count} 个ID`;
+            button.style.background = '#10b981';
+            
+            setTimeout(() => {
+                button.innerHTML = originalText;
+                button.style.background = '#3b82f6';
+            }, 3000);
+            
+            // 只在控制台显示成功消息，不显示弹出通知
+            console.log(`✅ 成功复制组 ${groupNumber} 的 ${count} 个 Item ID，可直接粘贴到Excel中`);
+        }
+        document.querySelector('#content2 #ungroupedContent .copy-btn').addEventListener('click', () => {
+            const ungroupedProductsListContainer = document.getElementById("ungroupedProductsList");
+            const ungroupedProductElements = Array.from(ungroupedProductsListContainer.children);
+            const itemIds = ungroupedProductElements.map(el => {
+                const itemIdSpan = el.querySelector(".product-details .detail-item:last-child .detail-value");
+                return itemIdSpan ? itemIdSpan.textContent : null;
+            }).filter(id => id !== null && id !== 'N/A').join('\n');
+
+            navigator.clipboard.writeText(itemIds).then(() => {
+                alert('所有未分组商品 Item ID 已复制！');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                const textArea = document.createElement('textarea');
+                textArea.value = itemIds;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('所有未分组商品 Item ID 已复制！');
+            });
+        });
+
+        // 德国利润计算器功能
+        let selectedShippingMethod = 'economy';
+
+        function selectShipping(method) {
+            selectedShippingMethod = method;
+            
+            // 更新UI显示
+            document.querySelectorAll('#content2 .shipping-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            document.querySelector(`#content2 .shipping-option input[value="${method}"]`).parentElement.classList.add('selected');
+            document.querySelector(`#content2 .shipping-option input[value="${method}"]`).checked = true;
+        }
+
+        function calculateProfit() {
+            // 获取输入值
+            const priceExcludingTax = parseFloat(document.getElementById('priceInput').value) || 0;
+            const actualWeight = parseFloat(document.getElementById('weightInput').value) || 0;
+            const purchaseCost = parseFloat(document.getElementById('costInput').value) || 0;
+            const length = parseFloat(document.getElementById('lengthInput').value) || 0;
+            const width = parseFloat(document.getElementById('widthInput').value) || 0;
+            const height = parseFloat(document.getElementById('heightInput').value) || 0;
+
+            // 验证输入
+            if (priceExcludingTax <= 0) {
+                alert('请输入有效的不含税价');
+                return;
+            }
+
+            // 1. 含税价 = 不含税价 × 1.19
+            const taxIncludedPrice = priceExcludingTax * 1.19;
+
+            // 2. 净收入 = 不含税价 - MP费(固定0.35€/笔) - 成交费(含税价×12%) - 跨国交易费(含税价×1.75%)
+            const mpFee = 0.35;
+            const transactionFee = taxIncludedPrice * 0.12;
+            const crossBorderFee = taxIncludedPrice * 0.0175;
+            const netIncome = priceExcludingTax - mpFee - transactionFee - crossBorderFee;
+
+            // 体积重计算：(长cm*宽cm*高cm)/6000
+            const volumeWeight = (length * width * height) / 6000;
+
+            // 计费重量：取实际重量和体积重的较大值
+            const chargeableWeight = Math.max(actualWeight, volumeWeight);
+
+            // 3. 物流费计算
+            let shippingCost = 0;
+            if (selectedShippingMethod === 'economy') {
+                // 经济物流：=IF(H12<=0.1,(H12*148)+7.7,IF(AND(H12>=0.1,H12<=2),(H12*148)+9.2,1000))
+                if (chargeableWeight <= 0.1) {
+                    shippingCost = (chargeableWeight * 148) + 7.7;
+                } else if (chargeableWeight >= 0.1 && chargeableWeight <= 2) {
+                    shippingCost = (chargeableWeight * 148) + 9.2;
+                } else {
+                    shippingCost = 1000;
+                }
+            } else {
+                // 标准物流：=IF(H12<=0.4,(H12*126.7)+16.4,IF(AND(H12>0.4,H12<=30),(H12*111.2)+22.6,1000))
+                if (chargeableWeight <= 0.4) {
+                    shippingCost = (chargeableWeight * 126.7) + 16.4;
+                } else if (chargeableWeight > 0.4 && chargeableWeight <= 30) {
+                    shippingCost = (chargeableWeight * 111.2) + 22.6;
+                } else {
+                    shippingCost = 1000;
+                }
+            }
+
+            // 4. 利润 = 净收入 - 物流费 - 采购价
+            // 注意：物流费已经是人民币，净收入需要转换为人民币
+            const eurToRmbRate = 7.28; // 欧元到人民币汇率
+            const profit = netIncome * eurToRmbRate - shippingCost - purchaseCost;
+
+            // 5. 利润率 = 利润 / (不含税价 × 7.28)
+            const profitMargin = (profit / (priceExcludingTax * eurToRmbRate)) * 100;
+
+            // 显示结果
+            document.getElementById('taxIncludedPrice').textContent = `€${taxIncludedPrice.toFixed(2)}`;
+            document.getElementById('chargeableWeight').textContent = `${chargeableWeight.toFixed(3)} kg`;
+            document.getElementById('shippingCost').textContent = `¥${shippingCost.toFixed(2)}`;
+            document.getElementById('profitAmount').textContent = `¥${profit.toFixed(2)}`;
+            document.getElementById('profitMargin').textContent = `${profitMargin.toFixed(2)}%`;
+
+            // 显示结果区域
+            document.getElementById('profitResult').classList.remove('hidden');
+        }
+
+        // 复制单个Item ID的函数
+        function copyItemId(itemId) {
+            if (itemId && itemId !== 'N/A') {
+                navigator.clipboard.writeText(itemId).then(() => {
+                    // 创建临时提示
+                    const toast = document.createElement('div');
+                    toast.textContent = `已复制 Item ID: ${itemId}`;
+                    toast.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        background: #10b981;
+                        color: white;
+                        padding: 12px 20px;
+                        border-radius: 8px;
+                        font-size: 14px;
+                        z-index: 10000;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        animation: slideIn 0.3s ease-out;
+                    `;
+                    
+                    // 添加动画样式
+                    if (!document.querySelector('#toast-animation-style')) {
+                        const style = document.createElement('style');
+                        style.id = 'toast-animation-style';
+                        style.textContent = `
+                            @keyframes slideIn {
+                                from { transform: translateX(100%); opacity: 0; }
+                                to { transform: translateX(0); opacity: 1; }
+                            }
+                        `;
+                        document.head.appendChild(style);
+                    }
+                    
+                    document.body.appendChild(toast);
+                    
+                    // 3秒后移除提示
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 3000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动复制: ' + itemId);
+                });
+            }
+        }
+
+        // 绑定计算按钮事件
+        document.getElementById('calculateBtn').addEventListener('click', calculateProfit);
+
+        // 绑定输入框回车事件 - 修复为新的类名
+        document.querySelectorAll('#content2 .compact-input, #content2 .mini-input').forEach(input => {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    calculateProfit();
+                }
+            });
+        });
+
+        // Initialize with tab1 active
+        document.addEventListener('DOMContentLoaded', () => {
+            switchMainTab('tab1');
+        });
+    </script>
+</body>
+</html>
+
+
