@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>eBay工具集合</title>
+    <title>eBay市场分析</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -915,8 +915,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-center items-center py-6">
                 <div class="flex items-center">
-                    <i class="fas fa-tools text-blue-600 text-2xl mr-3"></i>
-                    <h1 class="text-3xl font-bold text-gray-900">eBay工具集合</h1>
+                    <i class="fas fa-tools text-blue-600 text-2xl mr-3"></i>                    <h1 class="text-3xl font-bold text-gray-900">eBay市场分析</h1>
                 </div>
             </div>
         </div>
@@ -924,22 +923,22 @@
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Tab Navigation -->
-        <div class="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg">
-            <button id="tab1" class="tab-button active" onclick="switchMainTab('tab1')">
-                <i class="fas fa-search mr-2"></i>
-                eBay商品标题抓取工具
-            </button>
-            <button id="tab2" class="tab-button" onclick="switchMainTab('tab2')">
-                <i class="fas fa-chart-line mr-2"></i>
-                eBay爆款分析器
-            </button>
+        <div class="flex border-b border-gray-200 mb-6 bg-white">
+                <button id="tab1" class="tab-button active">
+                    <i class="fas fa-search mr-2"></i>
+                    关键词分析
+                </button>
+                <button id="tab2" class="tab-button">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    爆款分析
+                </button>
         </div>
 
-        <!-- Tab Content 1: eBay商品标题抓取工具 -->
+        <!-- Tab Content 1: 关键词分析 -->
         <div id="content1" class="tab-content ebay-scraper">
             <div class="container">
                 <div class="header">
-                    <h1>eBay商品标题抓取工具</h1>
+                    <h1>关键词分析</h1>
                     <p>智能抓取eBay商品标题，支持多页抓取、分词统计和多语言翻译</p>
                 </div>
 
@@ -2121,9 +2120,14 @@
             });
         });
 
-        // Initialize with tab1 active
-        document.addEventListener('DOMContentLoaded', () => {
-            switchMainTab('tab1');
+        document.addEventListener("DOMContentLoaded", () => {
+            const tab1Button = document.getElementById("tab1");
+            const tab2Button = document.getElementById("tab2");
+
+            tab1Button.addEventListener("click", () => switchMainTab("tab1"));
+            tab2Button.addEventListener("click", () => switchMainTab("tab2"));
+
+            switchMainTab("tab1"); // Initialize with tab1 active
         });
     </script>
 </body>
